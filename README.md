@@ -1,507 +1,833 @@
-# 🚀 Azure DevOps to Azure Authentication using SPN + Workload Identity Federation (WIF)
+# 🚀 DevOps Daily Practice — Single Consolidated Study Book
 
-[![Azure](https://img.shields.io/badge/Azure-Cloud-0078D4?logo=microsoftazure&logoColor=white)](https://azure.microsoft.com/)
-[![Azure DevOps](https://img.shields.io/badge/Azure_DevOps-Pipelines-0078D7?logo=azuredevops&logoColor=white)](https://dev.azure.com/)
-[![Terraform](https://img.shields.io/badge/Terraform-IaC-7B42BC?logo=terraform&logoColor=white)](https://www.terraform.io/)
-[![AKS](https://img.shields.io/badge/AKS-Kubernetes-326CE5?logo=kubernetes&logoColor=white)](https://azure.microsoft.com/en-us/products/kubernetes-service)
-[![Security](https://img.shields.io/badge/Security-Secretless_WIF-2ea44f?logo=security&logoColor=white)](#-why-wif-secretless-authentication)
+[![Azure](https://img.shields.io/badge/Azure-Cloud_Platform-0078D4?logo=microsoftazure&logoColor=white)](https://azure.microsoft.com/)
+[![Terraform](https://img.shields.io/badge/Terraform-Infrastructure_as_Code-7B42BC?logo=terraform&logoColor=white)](https://www.terraform.io/)
+[![Docker](https://img.shields.io/badge/Docker-Containers-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-AKS_Orchestration-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
+[![Git](https://img.shields.io/badge/Git-Version_Control-F05032?logo=git&logoColor=white)](https://git-scm.com/)
+[![Security](https://img.shields.io/badge/Security-Production_Hardened-2ea44f?logo=security&logoColor=white)](#-security-notes--credential-hygiene)
 
-> **Complete Step-by-Step Practice & Production Guide for Azure DevOps, Microsoft Entra ID (Azure AD), Azure RBAC, Terraform CI/CD, and Azure Kubernetes Service (AKS).**
+> **Azure CLI + Terraform + Git + Docker + AKS/Kubernetes + VM + Management Groups + 23 Interview Scenarios + SPN / Workload Identity Federation (WIF)**  
+> *All real-world daily practice notes consolidated into one reading flow with production troubleshooting patterns, commands, and interview scenarios.*
 
 ---
 
 ## 📑 Table of Contents
-1. [🌟 Overview & Objectives](#-overview--objectives)
-2. [🏗️ Architecture & High-Level Flow](#️-architecture--high-level-flow)
-3. [🧠 Concept: WIF vs Traditional Client Secret](#-concept-wif-vs-traditional-client-secret)
-4. [📋 Step-by-Step Implementation Guide](#-step-by-step-implementation-guide)
-   - [Step 1: Create Microsoft Entra App Registration (`AKS-SPN`)](#step-1--create-microsoft-entra-app-registration-aks-spn)
-   - [Step 2: Start Azure DevOps Service Connection Setup](#step-2--start-azure-devops-service-connection-setup)
-   - [Step 3: Choose Subscription Scope & Manual (WIF) Path](#step-3--choose-subscription-scope--manual-wif-path)
-   - [Step 4: Copy ADO Issuer & Subject Identifier](#step-4--copy-ado-issuer--subject-identifier)
-   - [Step 5: Fill Subscription & Identity Details in ADO](#step-5--fill-subscription--identity-details-in-ado)
-   - [Step 6: Configure Federated Credential in Microsoft Entra ID](#step-6--configure-federated-credential-in-microsoft-entra-id)
-   - [Step 7: Grant Azure Subscription RBAC (Contributor Role)](#step-7--grant-azure-subscription-rbac-contributor-role)
-   - [Step 8: Verify & Save Azure DevOps Service Connection](#step-8--verify--save-azure-devops-service-connection)
-   - [Step 9: Pipeline Validation Test (`az account show`)](#step-9--pipeline-validation-test-az-account-show)
-   - [Step 10: Complete Terraform CI/CD Pipeline](#step-10--complete-terraform-cicd-pipeline)
-   - [Step 11: AKS Deployment & Kubernetes Management](#step-11--aks-deployment--kubernetes-management)
-5. [🔄 Complete Flow At A Glance](#-complete-flow-at-a-glance)
-6. [🛠️ Troubleshooting Guide](#️-troubleshooting-guide)
-7. [🔒 Security Best Practices Checklist](#-security-best-practices-checklist)
-8. [🎤 60-Second Interview Explanation & Q&A](#-60-second-interview-explanation--qa)
-9. [📋 Quick Reference Table](#-quick-reference-table)
+
+1. [🎯 Master DevOps Mental Map & Troubleshooting Sequence](#-master-devops-mental-map--troubleshooting-sequence)
+2. [☁️ 1. Azure CLI + Daily Azure Operations](#-1-azure-cli--daily-azure-operations)
+3. [🏗️ 2. Terraform State, Import, Drift & Resource Lifecycle](#-2-terraform-state-import-drift--resource-lifecycle)
+4. [🔐 3. Terraform Authentication, SPN & Secrets](#-3-terraform-authentication-spn--secrets)
+5. [🏢 4. Azure Management Groups — Interview + Design Notes](#-4-azure-management-groups--interview--design-notes)
+6. [🐳 5. Docker — Multistage Build + Daily Commands](#-5-docker--multistage-build--daily-commands)
+7. [🔀 6. Git — Remote, Push, Large Files, Secrets & Nested Repositories](#-6-git--remote-push-large-files-secrets--nested-repositories)
+8. [☸️ 7. AKS + ACR + Kubernetes Practice](#-7-aks--acr--kubernetes-practice)
+9. [🔑 8. Key Vault + VM / Linux Troubleshooting](#-8-key-vault--vm--linux-troubleshooting)
+10. [🧠 9. Terraform Interview Scenario Bank (23 Scenarios)](#-9-terraform-interview-scenario-bank-23-scenarios)
+11. [📋 10. Daily One-Page Revision & Troubleshooting Order](#-10-daily-one-page-revision--troubleshooting-order)
+12. [🚀 11. Azure DevOps SPN + WIF — Existing Portal Practice](#-11-azure-devops-spn--wif--existing-portal-practice)
 
 ---
 
-## 🌟 Overview & Objectives
-
-In modern DevOps and Cloud Engineering, hardcoding client secrets or storing long-lived credentials inside CI/CD pipelines creates major security risks (credential leakage, expiration outages, secret rotation overhead).
-
-**Workload Identity Federation (WIF)** enables Azure DevOps pipelines to authenticate securely to Microsoft Azure **without any client secrets or certificates**, using short-lived OpenID Connect (OIDC) federated tokens.
-
-### What you will learn & build:
-- Create a Microsoft Entra ID Application & Service Principal (`AKS-SPN`).
-- Configure an **OIDC trust** between Azure DevOps and Microsoft Entra ID.
-- Understand the difference between **Authentication (WIF)** and **Authorization (Azure RBAC)**.
-- Securely execute **Terraform CI/CD pipelines** without long-lived credentials.
-- Provision core Azure Infrastructure (Resource Group, VNet, Subnet, ACR, Log Analytics, AKS).
-- Solve common production issues like `AuthorizationFailed` and Object ID / Client ID confusion.
-
----
-
-## 🏗️ Architecture & High-Level Flow
+## 🎯 Master DevOps Mental Map & Troubleshooting Sequence
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant ADO as Azure DevOps Pipeline
-    participant OIDC as Azure DevOps OIDC Issuer
-    participant Entra as Microsoft Entra ID (AKS-SPN)
-    participant ARM as Azure Resource Manager (Azure Subscription)
-    participant AKS as Azure Kubernetes Service
+graph TD
+    DP[🚀 DEVOPS DAILY PRACTICE]
+    
+    DP --> AZ[☁️ 1. Azure CLI & Ops]
+    DP --> TF[🏗️ 2. Terraform State & Drift]
+    DP --> MG[🏢 4. Management Groups]
+    DP --> DK[🐳 5. Docker Multistage]
+    DP --> GT[🔀 6. Git Troubleshooting]
+    DP --> K8S[☸️ 7. AKS + ACR + K8s]
+    DP --> LX[🔑 8. VM / Linux / Key Vault]
+    DP --> INT[🧠 9. 23 Interview Scenarios]
+    DP --> WIF[🚀 11. ADO SPN + WIF]
+```
 
-    ADO->>OIDC: Request OIDC token for pipeline run
-    OIDC-->>ADO: Issues short-lived OIDC JSON Web Token (JWT)
-    ADO->>Entra: Exchange OIDC JWT for Azure Access Token (Subject & Issuer match)
-    Entra->>Entra: Validate Federated Credential trust & Audience
-    Entra-->>ADO: Issue Azure Access Token
-    ADO->>ARM: Run AzureCLI / Terraform commands with Access Token
-    ARM->>ARM: Evaluate Azure RBAC permissions (Contributor role)
-    ARM->>AKS: Deploy AKS, ACR, VNet & Workloads
+### 🎯 Systematic Troubleshooting Order
+
+```text
+Azure:
+CLI → resource exists? → permissions → network → Terraform state → plan
+
+Terraform:
+error → resource address → Azure actual state → state → config → plan
+
+Git:
+status → remote → branch → .gitignore → secrets/large files → commit → push
+
+Docker:
+Dockerfile → build → image → container → port → logs
+
+AKS:
+kubectl get → describe → logs → image/tag → ACR access → network
 ```
 
 ---
 
-## 🧠 Concept: WIF vs Traditional Client Secret
+## ☁️ 1. Azure CLI + Daily Azure Operations
 
-| Feature | Traditional Service Principal (Secret) | Workload Identity Federation (WIF) |
-| :--- | :--- | :--- |
-| **Credentials** | Long-lived Client Secret (Password/Cert) | **No secrets!** Short-lived OIDC token |
-| **Risk of Leakage** | High (can be leaked in logs, Git, or config) | **Zero** (tokens are temporary & scoped) |
-| **Rotation Maintenance**| High (requires manual/automated rotation before expiry) | **None** (managed automatically by platform) |
-| **Trust Mechanism** | Secret string validation | **OpenID Connect (OIDC)** Cryptographic Trust |
-| **Industry Standard** | Legacy / Non-recommended | **Modern Cloud Security Best Practice** |
+### Core Commands
+```bash
+# 1. Login to Azure
+az login
+
+# 2. List all accessible subscriptions
+az account list --output table
+
+# 3. Retrieve active subscription ID in TSV format
+az account show --query id --output tsv
+
+# 4. Set/switch active subscription
+az account set --subscription <subscription-id>
+
+# 5. Inspect resource group
+az group show --name <RG-NAME>
+
+# 6. Query resource group location only
+az group show --name <RG-NAME> --query location -o table
+
+# 7. List resources in table format
+az resource list -o table
+
+# 8. List virtual machines
+az vm list -o table
+```
+
+### Storage / Terraform Backend Practice
+```bash
+# Create Resource Group for Terraform State
+az group create --name aksrg --location "East US"
+
+# Create Azure Storage Account with LRS redundancy
+az storage account create \
+  --name askustg \
+  --resource-group aksrg \
+  --location eastus \
+  --sku Standard_LRS \
+  --kind StorageV2
+
+# Create Blob Container for tfstate using Azure AD login credentials
+az storage container create \
+  --name tfstate \
+  --account-name askustg \
+  --auth-mode login
+```
+
+### Resource Discovery & Diagnostics
+```bash
+# Discover existing subnets in a virtual network
+az network vnet subnet list \
+  --resource-group <RG> \
+  --vnet-name <VNET> \
+  -o table
+
+# Discover network interfaces (NICs) in a resource group
+az network nic list \
+  --resource-group <RG> \
+  -o table
+```
+
+### Virtual Machine Operations
+```bash
+# Start a stopped VM
+az vm start --name <VMName> --resource-group <RGName>
+```
 
 > [!NOTE]
-> **Golden Rule to Remember:**
-> - **WIF = Authentication & Trust:** Confirms *who* Azure DevOps is.
-> - **Azure RBAC = Authorization & Permissions:** Determines *what* that identity can do in your subscription.
+> If a portal operation fails due to subscription context, use `az account set --subscription <subscription-id>` to ensure CLI and Portal contexts align.
 
 ---
 
-## 📋 Step-by-Step Implementation Guide
+## 🏗️ 2. Terraform State, Import, Drift & Resource Lifecycle
 
-### Step 1: Create Microsoft Entra App Registration (`AKS-SPN`)
+### Key Idea
+Terraform state tells Terraform which real Azure resources it is tracking. The primary commands:
+```bash
+terraform state list
+terraform state rm <resource-address>
+terraform import <resource-address> <resource-id>
+terraform plan
+terraform apply
+terraform destroy
+```
 
-1. Log in to the **[Azure Portal](https://portal.azure.com/)**.
-2. Navigate to **Microsoft Entra ID** → **App registrations** → **+ New registration**.
-3. Fill in the details:
-   - **Name:** `AKS-SPN`
-   - **Supported account types:** Accounts in this organizational directory only (Single tenant).
-   - **Redirect URI:** Leave blank.
-4. Click **Register**.
-5. In the **Overview** blade, note down the following parameters:
+---
 
-| Field Name | Description | Where to use |
-| :--- | :--- | :--- |
-| **Application (client) ID** | Unique GUID of the application | Client ID in Azure DevOps |
-| **Directory (tenant) ID** | Unique GUID of your Entra tenant | Tenant ID in Azure DevOps |
-| **Object ID** | Object identifier in Entra ID | **Do NOT use as Client ID** (Internal only) |
+### Import Existing Resource Workflow
+When Azure already contains a resource and Terraform fails with `resource already exists`:
+
+```mermaid
+flowchart TD
+    A[1. Identify Terraform Resource Address] --> B[2. Construct Azure Resource ID]
+    B --> C[3. Run: terraform import address id]
+    C --> D[4. Verify with: terraform state list]
+    D --> E[5. Run: terraform plan to confirm zero drift]
+```
+
+#### Generic Import Syntax
+```bash
+terraform import <resource_address> <resource_id>
+```
+
+#### Real Examples from Notes
+- **Storage Account:**
+  ```bash
+  terraform import azurerm_storage_account.askustg \
+    "/subscriptions/<sub-id>/resourceGroups/aksrg/providers/Microsoft.Storage/storageAccounts/askustg"
+  ```
+- **Resource Group:**
+  ```bash
+  terraform import azurerm_resource_group.rg \
+    "/subscriptions/<sub-id>/resourceGroups/aksrg"
+  ```
+- **Subnets (Root or Module):**
+  ```bash
+  terraform import module.frontend_subnet.azurerm_subnet.subnet \
+    "/subscriptions/<sub-id>/resourceGroups/lb_rg/providers/Microsoft.Network/virtualNetworks/lb_vnet/subnets/frontend_subnet"
+
+  terraform import module.Backend_subnet.azurerm_subnet.subnet \
+    "/subscriptions/<sub-id>/resourceGroups/lb_rg/providers/Microsoft.Network/virtualNetworks/lb_vnet/subnets/backend_subnet"
+  ```
+- **Public IP:**
+  ```bash
+  terraform import module.public_ip_name.azurerm_public_ip.example \
+    "/subscriptions/<sub-id>/resourceGroups/lb_rg/providers/Microsoft.Network/publicIPAddresses/lb_pip"
+  ```
+
+---
+
+### Subnet Already Exists
+When using a module calling `module "subnetcalling" { ... }` and `frontend_subnet` already exists in Azure:
+```bash
+terraform import module.subnetcalling.azurerm_subnet.Frontend_subnet \
+  "/subscriptions/<subscription-id>/resourceGroups/lb_rg/providers/Microsoft.Network/virtualNetworks/lb_vnet/subnets/frontend_subnet"
+```
+
+---
+
+### Subnet CIDR Overlap (`NetcfgSubnetRangesOverlap`)
+
+#### The Error
+```text
+Error: NetcfgSubnetRangesOverlap
+Subnet 'frontend_subnet' is not valid because its IP address range overlaps with that of an existing subnet.
+```
+
+#### Troubleshooting
+```bash
+az network vnet subnet list \
+  --resource-group lb_rg \
+  --vnet-name lb_vnet \
+  -o table
+```
+*Inspect `AddressPrefix` across all subnets and choose a non-overlapping range in your `.tf` configuration.*
+
+---
+
+### Subnet Delete Procedure
+```bash
+az network vnet subnet delete \
+  --name frontend_subnet \
+  --resource-group lb_rg \
+  --vnet-name lb_vnet
+```
 
 > [!WARNING]
-> Never confuse **Application (client) ID** with **Object ID**. Azure DevOps requires the **Application (client) ID**.
+> If the subnet is currently in use, check attached NICs first:
+> ```bash
+> az network nic list --resource-group lb_rg -o table
+> ```
+> Never delete dependencies blindly in production.
 
 ---
 
-### Step 2: Start Azure DevOps Service Connection Setup
-
-1. Open your **Azure DevOps Project**.
-2. Go to **Project Settings** (gear icon at the bottom-left corner).
-3. Under **Pipelines**, click **Service connections**.
-4. Click **New service connection**.
-5. Select **Azure Resource Manager** and click **Next**.
-
----
-
-### Step 3: Choose Subscription Scope & Manual (WIF) Path
-
-1. Choose **Workload Identity Federation (manual)** as the authentication method.
-2. Select **Scope Level:** `Subscription`.
-3. Provide a recognizable name for your connection:
-   - **Service connection name:** `sc-aks-terraform`
-   - **Description:** `Service connection for AKS Terraform provisioning using WIF`
-
-> [!TIP]
-> If the automatic subscription dropdown fails or loads indefinitely due to directory permissions, always choose the **Workload Identity Federation (manual)** method.
-
----
-
-### Step 4: Copy ADO Issuer & Subject Identifier
-
-On the manual WIF configuration screen, Azure DevOps displays two critical values:
-- **Issuer:** e.g., `https://vstoken.dev.azure.com/<GUID>`
-- **Subject identifier:** e.g., `sc://<Organization>/<Project>/<ConnectionName>`
-
-> [!IMPORTANT]
-> Copy both **Issuer** and **Subject identifier** exactly as shown. Keep this browser tab open while you switch back to the Azure Portal.
-
----
-
-### Step 5: Fill Subscription & Identity Details in ADO
-
-In the same Azure DevOps window, fill in your Azure details:
-- **Subscription ID:** `<YOUR-AZURE-SUBSCRIPTION-ID>`
-- **Subscription Name:** `<YOUR-AZURE-SUBSCRIPTION-NAME>`
-- **Service Principal Client ID:** `<AKS-SPN Application (client) ID>`
-- **Directory (Tenant) ID:** `<YOUR Directory (tenant) ID>`
-
-*Do not click "Verify and save" yet—we must first establish trust in Azure in Step 6 & 7.*
-
----
-
-### Step 6: Configure Federated Credential in Microsoft Entra ID
-
-1. Switch back to the **Azure Portal**.
-2. Go to **Microsoft Entra ID** → **App registrations** → Select **`AKS-SPN`**.
-3. Under **Manage**, select **Certificates & secrets**.
-4. Click on the **Federated credentials** tab.
-5. Click **+ Add credential**.
-6. Select scenario: **Other issuer**.
-7. Enter the exact values:
-
-| Field | Value |
-| :--- | :--- |
-| **Issuer** | *Paste Issuer copied from Azure DevOps (Step 4)* |
-| **Subject identifier** | *Paste Subject identifier copied from Azure DevOps (Step 4)* |
-| **Audience** | `api://AzureADTokenExchange` *(Default)* |
-| **Name** | `ado-terraform-wif` |
-| **Description** | `Federated trust for ADO pipeline to AKS-SPN` |
-
-8. Click **Add**.
-
----
-
-### Step 7: Grant Azure Subscription RBAC (Contributor Role)
-
-Without Azure RBAC permissions, Azure DevOps will authenticate but fail with `AuthorizationFailed` when executing tasks.
-
-1. In the Azure Portal, search for and open **Subscriptions**.
-2. Click your target subscription.
-3. Select **Access control (IAM)** from the left menu.
-4. Click **+ Add** → **Add role assignment**.
-5. Under the **Role** tab, search for and select **Contributor** (or custom least-privilege role). Click **Next**.
-6. Under **Members**:
-   - **Assign access to:** `User, group, or service principal`
-   - Click **+ Select members**.
-   - Search for **`AKS-SPN`**.
-   - Select the service principal and click **Select**.
-7. Click **Review + assign** to confirm.
-
----
-
-### Step 8: Verify & Save Azure DevOps Service Connection
-
-1. Return to your **Azure DevOps** tab where you set up the service connection.
-2. Click **Verify and save**.
-3. Azure DevOps will exchange a test federated token with Azure.
-4. **Expected Result:**
-   ```text
-   Verification successful
-   ```
-5. Click **Save**.
-
----
-
-### Step 9: Pipeline Validation Test (`az account show`)
-
-Before deploying Terraform or Kubernetes, create a minimal pipeline to confirm that Azure DevOps successfully authenticates via Azure CLI.
-
-Create `azure-pipelines-auth-test.yml`:
-
-```yaml
-trigger: none
-
-pool:
-  vmImage: 'ubuntu-latest'
-
-steps:
-  - task: AzureCLI@2
-    displayName: "Verify Azure WIF Authentication"
-    inputs:
-      azureSubscription: 'sc-aks-terraform'
-      scriptType: 'bash'
-      scriptLocation: 'inlineScript'
-      inlineScript: |
-        echo "============================================="
-        echo "🔐 Azure Authentication Verification"
-        echo "============================================="
-        az account show --output table
-        echo "✅ WIF Token successfully exchanged with Azure!"
-```
-
-**Run this pipeline:** If `az account show` prints your Subscription ID and Tenant ID, secretless authentication is working properly!
-
----
-
-### Step 10: Complete Terraform CI/CD Pipeline
-
-Here is the production-grade Azure DevOps YAML pipeline for Terraform formatting, initialization, validation, planning, and deployment.
-
-Create `azure-pipelines-terraform.yml`:
-
-```yaml
-trigger:
-  branches:
-    include:
-      - main
-
-variables:
-  azureServiceConnection: 'sc-aks-terraform'
-  terraformVersion: '1.8.0'
-  workingDir: '$(System.DefaultWorkingDirectory)/terraform'
-
-stages:
-  - stage: ValidateAndPlan
-    displayName: "Terraform Validate & Plan"
-    jobs:
-      - job: Plan
-        pool:
-          vmImage: 'ubuntu-latest'
-        steps:
-          - task: TerraformInstaller@1
-            displayName: "Install Terraform"
-            inputs:
-              terraformVersion: '$(terraformVersion)'
-
-          - task: AzureCLI@2
-            displayName: "Terraform Init & Plan (WIF Authenticated)"
-            inputs:
-              azureSubscription: '$(azureServiceConnection)'
-              addSpnToEnvironment: true
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              workingDirectory: '$(workingDir)'
-              inlineScript: |
-                set -e
-                echo "1️⃣ Checking Terraform Code Format..."
-                terraform fmt -check
-
-                echo "2️⃣ Initializing Terraform Backend..."
-                terraform init
-
-                echo "3️⃣ Validating Terraform Configuration..."
-                terraform validate
-
-                echo "4️⃣ Generating Terraform Plan..."
-                terraform plan -out=tfplan
-
-          - publish: $(workingDir)/tfplan
-            artifact: tfplan
-            displayName: "Publish Plan Artifact"
-
-  - stage: Apply
-    displayName: "Terraform Apply (AKS Infrastructure)"
-    dependsOn: ValidateAndPlan
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-    jobs:
-      - deployment: DeployAKS
-        pool:
-          vmImage: 'ubuntu-latest'
-        environment: 'production'
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - checkout: self
-
-                - task: TerraformInstaller@1
-                  displayName: "Install Terraform"
-                  inputs:
-                    terraformVersion: '$(terraformVersion)'
-
-                - download: current
-                  artifact: tfplan
-                  displayName: "Download Plan Artifact"
-
-                - task: AzureCLI@2
-                  displayName: "Apply Terraform Plan"
-                  inputs:
-                    azureSubscription: '$(azureServiceConnection)'
-                    addSpnToEnvironment: true
-                    scriptType: 'bash'
-                    scriptLocation: 'inlineScript'
-                    workingDirectory: '$(workingDir)'
-                    inlineScript: |
-                      set -e
-                      terraform init
-                      echo "🚀 Applying Terraform plan to Azure..."
-                      terraform apply -auto-approve $(Pipeline.Workspace)/tfplan/tfplan
-```
-
----
-
-### Step 11: AKS Deployment & Kubernetes Management
-
-The Terraform code provisions the complete cloud architecture:
-```text
-Azure Subscription
- └── Resource Group
-      ├── Virtual Network (VNet) & Subnets
-      ├── Azure Container Registry (ACR)
-      ├── Azure Monitor & Log Analytics Workspace
-      └── Azure Kubernetes Service (AKS Cluster)
-```
-
-Once the cluster is ready, interact with AKS using `kubectl`:
-
+### State Remove (`terraform state rm`)
+If a resource was manually deleted or should no longer be tracked:
 ```bash
-# 1. Get AKS credentials
-az aks get-credentials --resource-group rg-aks-prod --name aks-cluster-prod --overwrite-existing
+terraform state rm <resource-address>
 
-# 2. Verify cluster nodes
-kubectl get nodes -o wide
+# Verify:
+terraform plan
+```
+*(Also note: `terraform refresh` synchronizes state with real cloud state, but modern practice prefers `terraform plan` to reconcile differences).*
 
-# 3. Deploy Kubernetes applications
-kubectl apply -f k8s/deployment.yaml
-kubectl apply -f k8s/service.yaml
-kubectl apply -f k8s/ingress.yaml
+---
 
-# 4. Check pod status
-kubectl get pods -A
+### Destructive Operations
+```bash
+# Destroy all managed infrastructure
+terraform destroy
+
+# Target a specific resource for destruction
+terraform destroy -target <resource-address>
+```
+
+> [!CAUTION]
+> Avoid direct Portal deletion for Terraform-managed resources to prevent state drift and lock corruption.
+
+---
+
+## 🔐 3. Terraform Authentication, SPN & Secrets
+
+### Local CLI Flow
+```bash
+az logout
+az login --scope https://management.azure.com/.default
+```
+
+### Automation Service Principal Creation
+```bash
+az ad sp create-for-rbac \
+  --name terraform-sp \
+  --role Contributor \
+  --scopes /subscriptions/<subscription-id>
+```
+
+### AzureRM Provider Configuration
+```hcl
+provider "azurerm" {
+  features {}
+
+  subscription_id = var.subscription_id
+  client_id       = var.client_id
+  client_secret   = var.client_secret
+  tenant_id       = var.tenant_id
+}
+```
+
+### 🔒 Security Rules & Credential Hygiene
+- **Never hardcode secrets** in `provider.tf` or code files.
+- Use variables and keep sensitive `terraform.tfvars` out of Git.
+- Use environment variables (`ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`, `ARM_TENANT_ID`, `ARM_SUBSCRIPTION_ID`) or CI/CD secret stores.
+- If a secret is committed, deleting the line is **not enough**—Git history still contains it. Clean history using `git-filter-repo`.
+- Temporary GitHub secret-unblocking is **strongly discouraged** for real production secrets.
+- For Azure DevOps, prefer **Workload Identity Federation (WIF)** over long-lived client secrets.
+
+---
+
+## 🏢 4. Azure Management Groups — Interview + Design Notes
+
+Management Groups provide organizational hierarchy, governance, access control, and policy inheritance across multiple subscriptions.
+
+```mermaid
+graph TD
+    Root[Tenant Root Group] --> Platform[Org-Platform]
+    Root --> LandingZone[Org-LandingZones]
+    
+    Platform --> MgmtSub[Management Subscription]
+    Platform --> ConnSub[Connectivity / Hub Subscription]
+    
+    LandingZone --> Prod[Org-Prod]
+    LandingZone --> NonProd[Org-NonProd]
+    
+    Prod --> ProdSub1[Production App Subscription]
+    NonProd --> DevSub[Dev / QA Subscription]
+```
+
+### Key Terraform Resources
+- `azurerm_management_group`
+- `azurerm_management_group_subscription_association`
+- `azurerm_role_assignment`
+- `azurerm_policy_assignment`
+
+### Essential Interview Points
+- **Tenant Root Group** exists by default.
+- A custom logical hierarchy can be built cleanly with Terraform.
+- **Management Group Contributor** and **Directory Reader** roles are required for MG operations.
+- Subscription association is handled with `azurerm_management_group_subscription_association`.
+- Policies applied at higher MG levels have wider impact through **inheritance**.
+- Child MGs can be created dynamically with `for_each`.
+- Conditional creation pattern: `count = var.enable_mg ? 1 : 0`.
+- Reference an MG ID: `azurerm_management_group.<name>.id`.
+- Foundation for **Azure Landing Zones (ALZ)** (Identity, Management, Connectivity, Security).
+
+### Dynamic Hierarchy Pattern
+```hcl
+resource "azurerm_management_group" "mg" {
+  for_each                   = var.management_groups
+  name                       = each.key
+  display_name               = each.value.display_name
+  parent_management_group_id = each.value.parent
+}
+```
+
+### Dynamic Subscription Mapping
+```hcl
+resource "azurerm_management_group_subscription_association" "sub" {
+  for_each            = var.subscription_map
+  management_group_id = azurerm_management_group.mg[each.value.mg_key].id
+  subscription_id     = "/subscriptions/${each.value.subscription_id}"
+}
+```
+
+### Import Existing Management Group
+```bash
+terraform import azurerm_management_group.m1 \
+  /providers/Microsoft.Management/managementGroups/<mg_id>
 ```
 
 ---
 
-## 🔄 Complete Flow At A Glance
+## 🐳 5. Docker — Multistage Build + Daily Commands
+
+### Multistage Dockerfile (React + Nginx)
+```dockerfile
+# Stage 1: Build Application
+FROM node:18 AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+# Stage 2: Production Nginx Runtime
+FROM nginx:latest
+COPY --from=builder /app/build /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+#### Why Multistage?
+- **Builder Stage:** Uses heavy Node image, downloads dependencies, and builds static bundle.
+- **Runtime Stage:** Copies only the final `/app/build` into a lightweight Nginx container. Eliminates source code and build tools from the production image.
+
+---
+
+### Daily Docker Commands
+```bash
+# Build Image
+docker build -t react-app:v1 .
+
+# Build Image without using Cache
+docker build --no-cache -t addtask-app .
+
+# List Images
+docker images
+
+# Run Container with Port Forwarding
+docker run -d -p 8000:80 --name Asku node:v1
+
+# Stop Container
+docker stop <container-id>
+
+# Remove Stopped Containers
+docker container prune -f
+
+# Remove All Containers (Dangerous)
+docker container rm $(docker ps -aq)
+
+# Remove Unused Images
+docker image prune
+docker image prune -a
+
+# Remove All Images by ID
+docker rmi $(docker images -q)
+
+# Broad System Cleanup
+docker system prune -a
+```
+
+---
+
+## 🔀 6. Git — Remote, Push, Large Files, Secrets & Nested Repositories
+
+### Remote & Branch Commands
+```bash
+# Check remote URLs
+git remote -v
+
+# Change existing origin (Do NOT use 'git remote add' if origin exists!)
+git remote set-url origin https://github.com/<user>/<repo>.git
+
+# Add new origin (when none exists)
+git remote add origin https://github.com/<user>/<repo>.git
+
+# Rename branch to main
+git branch -M main
+
+# Push with upstream tracking
+git push -u origin main
+```
+
+---
+
+### Windows Line Endings (LF / CRLF)
+* **Message:** `warning: LF will be replaced by CRLF`
+* **Meaning:** Normal Windows line ending conversion; not an error.
+* **Global Configuration:**
+  ```bash
+  git config --global core.autocrlf true
+  ```
+
+---
+
+### Large File Issue (> 100 MB Provider Executables)
+* **Error:** GitHub rejects push because `terraform-provider-azurerm_....exe` is > 100 MB.
+* **Root Cause:** `.terraform/` directory containing provider binaries was accidentally committed.
+* **Resolution using `git-filter-repo`:**
+  ```bash
+  # 1. Install git-filter-repo
+  pip install git-filter-repo
+
+  # 2. Strip the directory from all commits
+  git filter-repo --path .terraform/ --invert-paths --force
+
+  # 3. Add to .gitignore
+  echo ".terraform/" >> .gitignore
+  ```
+
+---
+
+### Nested Repository Checkouts
+* **Error:** `error: 'Enviroment/dev/' does not have a commit checked out. fatal: adding files failed.`
+* **Diagnosis:** `Enviroment/dev/` has its own `.git` directory.
+* **Fix (PowerShell):**
+  ```powershell
+  cd Enviroment/dev
+  ls -Force
+
+  # If not intended to be a separate submodule, remove nested .git:
+  Remove-Item -Recurse -Force .git
+
+  # Return to parent repo and stage:
+  cd ../..
+  git add .
+  git status
+  ```
+
+---
+
+### Secret Scanning Rejections
+When GitHub rejects a push due to credential detection:
+1. Remove the secret from source code.
+2. Rotate/revoke the exposed credential in Azure immediately.
+3. Remove the secret from Git history (`git-filter-repo`).
+4. Add sensitive files (`*.tfvars`, `.env`) to `.gitignore`.
+5. Use environment variables, CI secrets, or Azure Key Vault.
+
+---
+
+## ☸️ 7. AKS + ACR + Kubernetes Practice
+
+### AKS / ACR Integration Sequence
+```bash
+# 1. Login to Azure CLI
+az login
+
+# 2. Login to Azure Container Registry
+az acr login --name <ACR-NAME>
+
+# 3. Attach ACR to AKS Cluster (Grants AcrPull role automatically)
+az aks update \
+  --name <AKS-NAME> \
+  --resource-group <RG-NAME> \
+  --attach-acr <ACR-NAME>
+
+# 4. Get AKS Credentials (kubeconfig)
+az aks get-credentials \
+  --name <AKS-NAME> \
+  --resource-group <RG-NAME> \
+  --overwrite-existing
+
+# 5. Install kubectl on Linux VM (if needed)
+sudo az aks install-cli
+
+# 6. Verify kubectl client version
+kubectl version --client
+```
+
+---
+
+### ACR Image Build & Push
+```bash
+# Tag local image for ACR
+docker tag stream2:latest <ACR-NAME>.azurecr.io/stream2:latest
+
+# Push to ACR
+docker push <ACR-NAME>.azurecr.io/stream2:latest
+
+# List repositories in ACR
+az acr repository list --name <ACR-NAME> --output table
+```
+
+---
+
+### Kubectl Recursive Documentation
+```bash
+kubectl explain pod --recursive > pod.txt
+kubectl explain deployment --recursive > deployment.txt
+```
+
+---
+
+### `kubectl create` vs `kubectl apply`
+- **`kubectl create -f deployment.yaml`**: Imperative. Fails if the resource already exists. Best for initial testing.
+- **`kubectl apply -f deployment.yaml`**: Declarative. Creates if absent, updates if exists. **Standard for CI/CD pipelines.**
+
+---
+
+### Zero-Downtime Rollout Restart
+```bash
+kubectl rollout restart deployment <deployment-name>
+kubectl rollout status deployment <deployment-name>
+```
+
+---
+
+### Pod Troubleshooting: `ErrImagePull` vs `ImagePullBackOff`
+
+```mermaid
+flowchart TD
+    A[Pod Scheduled] --> B[Kubelet attempts to pull image]
+    B --> C{Image Pull Fails}
+    C --> D[⚠️ ErrImagePull]
+    D --> E[Kubelet retries with exponential backoff]
+    E --> F[❌ ImagePullBackOff]
+    
+    F --> G[Diagnostic: kubectl describe pod pod-name]
+    F --> H[Diagnostic: kubectl logs pod-name]
+```
+
+#### Primary Causes & Checks:
+- **Wrong image name or tag** in deployment YAML.
+- **Private ACR authentication failure** (Verify `az aks update --attach-acr`).
+- **Network connectivity / Private DNS** blocking AKS nodes from ACR endpoint.
+
+---
+
+## 🔑 8. Key Vault + VM / Linux Troubleshooting
+
+### Terraform Key Vault Data Source Pattern
+```hcl
+data "azurerm_key_vault" "kv" {
+  name                = "<key-vault-name>"
+  resource_group_name = "<resource-group-name>"
+}
+
+data "azurerm_key_vault_secret" "example" {
+  name         = "<secret-name>"
+  key_vault_id = data.azurerm_key_vault.kv.id
+}
+```
+
+> [!CAUTION]
+> Never commit real database passwords, connection strings, or API keys to Git. Retrieve them at runtime via Key Vault data sources.
+
+---
+
+### VM / Linux Diagnostics — APT Not Working
+
+#### Step 1: Check IP and Default Route
+```bash
+ip a
+ip route
+```
+
+#### Step 2: Test Internet Connectivity (Bypass DNS)
+```bash
+ping -c 4 8.8.8.8
+```
+
+#### Step 3: Inspect DNS Configuration
+```bash
+cat /etc/resolv.conf
+```
+*Expected Azure default DNS: `nameserver 168.63.129.16` or public fallback `nameserver 8.8.8.8`.*
+
+#### Step 4: Check systemd-resolved
+```bash
+systemctl status systemd-resolved
+```
+
+#### Step 5: Verify Hostname Resolution
+```bash
+hostname
+cat /etc/hosts
+```
+*Expected pattern:*
+```text
+127.0.0.1 localhost
+127.0.1.1 <hostname>
+```
+
+#### Step 6: Update Packages
+```bash
+sudo apt update
+sudo apt upgrade -y
+```
+
+---
+
+### Nginx / Website Cannot Be Reached
+```bash
+# 1. Check Nginx service status
+sudo systemctl status nginx
+
+# 2. Check listening ports
+sudo ss -tuln | grep 80
+
+# 3. Test web server locally on VM
+curl http://<VM-private-IP>
+```
+*If local curl works, the issue is an Azure Network Security Group (NSG) inbound rule or Azure Firewall blocking port 80/443.*
+
+---
+
+## 🧠 9. Terraform Interview Scenario Bank (23 Scenarios)
+
+### 🎯 Universal Interview Answer Pattern
+$$\text{Scenario} \longrightarrow \text{Identify Root Cause} \longrightarrow \text{Verify Cloud/Git State} \longrightarrow \text{Smallest Safe Change} \longrightarrow \text{Verify with Plan/Status} \longrightarrow \text{Document Prevention}$$
+
+---
+
+### 🟢 Foundation Scenarios (1–4)
+1. **Remote Backend / State Locking:** Multi-user conflicts are resolved by migrating to Azure Blob Storage backend with Blob Lease state locking.
+2. **Environment Separation:** Separate Dev, QA, and Prod using directory-based layouts with distinct `.tfvars` and isolated state files.
+3. **Drift Detection:** `terraform plan` compares the declarative `.tf` files with real Azure infrastructure. Apply reconciles differences.
+4. **Hardcoded Credentials:** Commit of plain-text passwords resolved by rotating keys immediately and reading secrets via `azurerm_key_vault` data blocks.
+
+---
+
+### 🟡 Networking & Security (5–7)
+5. **NSG Misconfiguration:** Port exposed to `0.0.0.0/0`. Fix by enforcing least-privilege CIDR rules in Terraform and assigning Azure Policy (`Deny-Public-Inbound`).
+6. **Private Database:** Prevent public exposure using `azurerm_private_endpoint`, Private DNS zones, and disabling public network access.
+7. **CIDR Overlap:** VNet peering fails due to overlapping subnets. Fix by recalculating prefixes with `cidrsubnet()` and maintaining an IPAM register.
+
+---
+
+### 🔵 Scaling & High Availability (8–10)
+8. **Single VM to HA:** Transition standalone VM to an Azure Virtual Machine Scale Set (VMSS) across Availability Zones with a Standard Load Balancer health probe.
+9. **Zero-Downtime Update:** Implement rolling upgrades in VMSS or Kubernetes blue/green backend pool swaps.
+10. **Auto-Scaling:** Configure `azurerm_monitor_autoscale_setting` or K8s HPA to scale out on >70% CPU usage for 5 minutes.
+
+---
+
+### 🟣 Production Safety (11–13)
+11. **Accidental Destroy:** Apply `lifecycle { prevent_destroy = true }` and Azure Resource Management locks (`CanNotDelete`).
+12. **Resource Deletion Protection:** Lock storage accounts and database instances so Terraform cannot delete them even during bad runs.
+13. **Plan Approval Workflow:** CI/CD pipeline stage separation: Stage 1 creates `tfplan` artifact; Stage 2 requires manual security sign-off before running `apply`.
+
+---
+
+### 🔴 State & Recovery (14–15)
+14. **State Corruption:** Restore the previous healthy snapshot from Azure Storage **Blob Versioning**, then run `terraform state list` and `terraform plan`.
+15. **State Lock Stuck:** Ensure no active pipeline is executing, note the Lock ID, and execute `terraform force-unlock <LOCK_ID>`.
+
+---
+
+### 🟤 Cost Optimization (16–17)
+16. **High Azure Bill:** Enforce auto-shutdown on non-production VMs, clean orphaned unattached disks and public IPs, and purchase Reserved Instances.
+17. **Mandatory Tagging:** Enforce `Environment`, `Owner`, and `CostCenter` tags through provider-level `default_tags` and Azure Policy enforcement.
+
+---
+
+### ⚫ Enterprise Architecture (18–20)
+18. **Multi-Region Disaster Recovery (DR):** Deploy active-passive infrastructure in paired regions with separate state files and Azure Front Door failover routing.
+19. **Import Existing Infrastructure:** Create matching `.tf` resource definition, run `terraform import`, and reconcile with `terraform plan` until zero changes are reported.
+20. **Modular Design:** Reusable enterprise modules with standardized `main.tf`, `variables.tf`, `outputs.tf`, strict variable validation, and semver tagging.
+
+---
+
+### 🌟 Senior Bonus Scenarios (21–23)
+21. **Breaking Changes in Modules:** Follow Semantic Versioning (`v1.0.0` -> `v2.0.0`). Deprecate inputs gradually and pin root module versions (`?ref=v1.2.0`).
+22. **Dependency Failure (`depends_on`):** Use explicit `depends_on` when Terraform graph cannot automatically resolve resource relationships (e.g., VM extension depending on Azure Active Directory registration).
+23. **Parallel Apply Issue:** Subnet creation collisions in the same VNet. Resolve using `-parallelism=1` or chaining dependencies cleanly.
+
+---
+
+## 📋 10. Daily One-Page Revision & Troubleshooting Order
 
 ```text
-1. Create App Registration (AKS-SPN) in Entra ID
-      ↓
-2. Note Application (Client) ID and Tenant ID
-      ↓
-3. Go to Azure DevOps → Project Settings → Service connections
-      ↓
-4. Select Azure Resource Manager → Workload Identity Federation (manual)
-      ↓
-5. Copy ADO-generated Issuer & Subject Identifier
-      ↓
-6. Azure Portal → App Registration (AKS-SPN) → Federated credentials
-      ↓
-7. Add Credential (Issuer, Subject, Audience: api://AzureADTokenExchange)
-      ↓
-8. Azure Portal → Subscriptions → Access control (IAM) → Add Contributor to AKS-SPN
-      ↓
-9. Return to Azure DevOps → Click "Verify and save" (Verification successful)
-      ↓
-10. Test via AzureCLI task (az account show)
-      ↓
-11. Execute Terraform CI/CD (fmt → init → validate → plan → apply)
-      ↓
-12. Provision AKS, ACR, VNet & Log Analytics
-      ↓
-13. Deploy workloads via kubectl / Helm
+================================================================================
+                    DAILY COMMAND CHEAT SHEET
+================================================================================
+
+AZURE:
+  az login
+  az account list -o table
+  az account show --query id -o tsv
+  az account set --subscription <id>
+  az group show --name <rg>
+  az vm list -o table
+
+TERRAFORM:
+  terraform init
+  terraform validate
+  terraform plan
+  terraform apply
+  terraform state list
+  terraform import <address> <id>
+  terraform state rm <address>
+  terraform destroy
+
+GIT:
+  git status
+  git remote -v
+  git branch
+  git add .
+  git commit -m "<message>"
+  git push -u origin main
+  git remote set-url origin <url>
+
+DOCKER:
+  docker build -t app:v1 .
+  docker images
+  docker run -d -p 8000:80 --name app app:v1
+  docker stop <id>
+  docker container prune
+  docker image prune -a
+  docker system prune -a
+  docker build --no-cache -t app .
+
+AKS:
+  az acr login --name <acr>
+  az aks update --name <aks> --resource-group <rg> --attach-acr <acr>
+  az aks get-credentials --name <aks> --resource-group <rg>
+  kubectl get pods
+  kubectl describe pod <pod>
+  kubectl logs <pod>
+  kubectl apply -f deployment.yaml
+  kubectl rollout restart deployment <deployment>
+================================================================================
 ```
 
 ---
 
-## 🛠️ Troubleshooting Guide
+## 🚀 11. Azure DevOps SPN + WIF — Existing Portal Practice
 
-### ❌ 1. `AuthorizationFailed` (`Microsoft.Resources/subscriptions/read`)
-* **Symptom:** During service connection verification or pipeline run, Azure reports:
-  ```text
-  The client 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' with object id '...' does not have
-  authorization to perform action 'Microsoft.Resources/subscriptions/read' over scope '/subscriptions/...'.
-  ```
-* **Root Cause:** WIF authentication succeeded, but the service principal has no RBAC permissions on the subscription.
-* **Fix:**
-  1. Open Azure Portal → **Subscriptions** → Your Subscription → **Access control (IAM)**.
-  2. Click **Add role assignment** → Select **Contributor** (or Reader/Custom role).
-  3. Assign to member: **`AKS-SPN`**. Save and wait 1–2 minutes for RBAC replication.
+```mermaid
+flowchart TD
+    A[Microsoft Entra ID: Create AKS-SPN] --> B[Collect Client ID & Tenant ID]
+    B --> C[Azure DevOps: ARM Service Connection]
+    C --> D[Select Workload Identity Federation Manual]
+    D --> E[Copy Issuer & Subject Identifier]
+    E --> F[Azure Portal: Add Federated Credential to AKS-SPN]
+    F --> G[Azure Portal: Subscription IAM -> Add Contributor to AKS-SPN]
+    G --> H[Azure DevOps: Click Verify & Save]
+    H --> I[Validation: AzureCLI az account show]
+    I --> J[Terraform: fmt -> init -> validate -> plan -> apply]
+    J --> K[AKS Infrastructure: RG -> VNet -> ACR -> Log Analytics -> AKS]
+    K --> L[Workloads: Deploy via kubectl / Helm]
+```
 
----
-
-### ❌ 2. Client ID vs Object ID Mismatch
-* **Symptom:** Verification fails with *Invalid Client ID* or identity not found.
-* **Root Cause:** Pasting the Entra ID **Object ID** instead of **Application (client) ID**.
-* **Fix:**
-  - Go to **Microsoft Entra ID** → **App registrations** → **`AKS-SPN`** → **Overview**.
-  - Copy **Application (client) ID** (NOT Object ID).
-
----
-
-### ❌ 3. Azure Subscription Does Not Appear in Dropdown
-* **Symptom:** Automatic connection wizard says: *"No active Azure subscriptions were found."*
-* **Root Cause:** User account in Azure DevOps does not have Entra ID directory administrator rights to auto-create service principals.
-* **Fix:**
-  - Switch to **Workload Identity Federation (manual)** mode.
-  - Manually provide Subscription ID, Subscription Name, Client ID, and Tenant ID as described in Step 3–5.
-
----
-
-### ❌ 4. Federated Token Validation Mismatch
-* **Symptom:** Token exchange fails with *Audience or Subject mismatch*.
-* **Root Cause:** Typo or leading/trailing space in Issuer or Subject identifier when pasting into Azure Federated Credentials.
-* **Fix:**
-  - Verify that Audience is set to `api://AzureADTokenExchange`.
-  - Re-copy the exact **Issuer** and **Subject identifier** string from Azure DevOps into the Azure federated credential.
-
----
-
-## 🔒 Security Best Practices Checklist
-
-- [x] **Zero Secrets in Code:** Never commit passwords, client secrets, or `.tfvars` containing secrets to Git.
-- [x] **Use WIF everywhere:** Use Workload Identity Federation for all Azure DevOps service connections.
-- [x] **Least Privilege Access:** Scope RBAC to a Resource Group rather than the entire Subscription whenever feasible.
-- [x] **Remote State Locking:** Store Terraform state in an encrypted Azure Storage Account with blob lease locking.
-- [x] **Pipeline Environment Approvals:** Enforce manual approval gates on production deployment stages.
-- [x] **Restrict Service Connection Usage:** Limit pipeline permissions on the service connection to authorized repositories and branches.
-
----
-
-## 🎤 60-Second Interview Explanation & Q&A
-
-### 🎙️ The 60-Second Elevator Pitch
-> *"In my project, I configured secure, secretless CI/CD authentication between Azure DevOps and Azure using **Workload Identity Federation (WIF)**.
->
-> First, I created a Microsoft Entra ID App Registration called **AKS-SPN**. In Azure DevOps, I created an Azure Resource Manager Service Connection using the manual WIF flow, which generated an **Issuer** and a **Subject identifier**.
->
-> I configured these as a **Federated Credential** on `AKS-SPN` with the standard `api://AzureADTokenExchange` audience. Then, I assigned the **Contributor** role to `AKS-SPN` at the Azure subscription scope for authorization.
->
-> To ensure reliability, I verified authentication using an `AzureCLI@2` task with `az account show`. Once validated, the Terraform pipeline executes `fmt`, `init`, `validate`, `plan`, and `apply` using the same secretless identity to deploy our AKS cluster, ACR, and networking infrastructure without managing expiring passwords or secrets."*
-
----
-
-### ❓ Key Interview Questions & Answers
-
-**Q1: What is the core difference between WIF and Client Secret authentication?**  
-*Answer:* A Client Secret is a static, long-lived password that can be leaked and requires rotation. WIF uses OpenID Connect (OIDC) to exchange short-lived tokens on the fly based on a cryptographic trust between Azure DevOps and Microsoft Entra ID. No credentials are ever stored.
-
-**Q2: If service connection verification fails with `AuthorizationFailed`, where is the issue?**  
-*Answer:* The issue is in **Azure RBAC**, not in WIF authentication. WIF successfully verified the identity, but that identity does not have permission (`Contributor` or `Reader`) on the subscription scope in **Access control (IAM)**.
-
-**Q3: Can we scope WIF to a specific Git branch or environment?**  
-*Answer:* Yes! The **Subject identifier** generated by Azure DevOps contains repository and environment/branch information. You can restrict the federated credential in Azure so only runs from `refs/heads/main` or a specific release environment are allowed to exchange tokens.
-
----
-
-## 📋 Quick Reference Table
-
-| Component | Role / Purpose | Key Configuration |
-| :--- | :--- | :--- |
-| **`AKS-SPN`** | Microsoft Entra App & Service Principal | Identity representation in Azure |
-| **Application (Client) ID** | Unique Application Identifier | Used in ADO Service Connection |
-| **Directory (Tenant) ID** | Azure AD Tenant Identifier | Used in ADO Service Connection |
-| **Issuer & Subject** | OIDC Identity Coordinates | Generated by ADO, configured in Entra ID |
-| **Audience** | Token intended recipient | `api://AzureADTokenExchange` |
-| **Azure RBAC (IAM)** | Permission assignment | `Contributor` role on Subscription |
-| **`AzureCLI@2`** | Pipeline authentication verification | Runs `az account show` |
-| **Terraform AzureRM** | Infrastructure as Code orchestration | Provisions AKS, ACR, VNet, Monitoring |
-| **AKS** | Managed Kubernetes Cluster | Hosts containerized microservices |
+### Complete Sequence
+1. **AKS-SPN App Registration:** Created in Microsoft Entra ID. Note down Application (Client) ID and Directory (Tenant) ID.
+2. **Azure DevOps ARM Service Connection:** Navigate to `Project Settings → Service connections → New service connection → Azure Resource Manager → Workload Identity Federation (manual)`.
+3. **WIF Trust Values:** Copy the ADO-generated **Issuer** and **Subject identifier**.
+4. **Federated Credential in Azure:** Go to `AKS-SPN → Certificates & secrets → Federated credentials → Add credential`. Set Audience to `api://AzureADTokenExchange`.
+5. **Subscription RBAC:** Go to `Subscriptions → Access control (IAM) → Add role assignment → Contributor → Select AKS-SPN`.
+6. **Verification:** Return to Azure DevOps and click **Verify and save**.
+7. **Pipeline Validation:** Run `AzureCLI@2` task with `az account show`.
+8. **Terraform Execution:** Run `fmt` → `init` → `validate` → `plan` → `apply`.
+9. **AKS Provisioning:** Resources provisioned: Resource Group, VNet, Subnet, ACR, Log Analytics, and AKS Cluster.
+10. **Application Deployments:** Workloads deployed using `kubectl` and Helm.
 
 ---
 
 <p align="center">
-  <b>Built with ❤️ for DevOps Engineers & Cloud Architects</b><br>
-  <i>Feel free to star ⭐ this repository if it helped your cloud journey!</i>
+  <b>Built for DevOps Engineers, Cloud Architects & Daily Production Mastery</b><br>
+  <i>⭐ Star this repository to keep this handbook handy for daily troubleshooting and interviews!</i>
 </p>
